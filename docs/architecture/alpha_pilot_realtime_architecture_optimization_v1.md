@@ -95,7 +95,7 @@
 
 ---
 
-## 4. 三层执行路线
+## 5. 三层执行路线
 
 ### 第一层：P0 生产稳定性修复（止血，本周完成）
 
@@ -169,11 +169,6 @@ top -l 1 | grep phase0  # CPU < 40%
 | # | 任务 | 文件 | 说明 |
 |---|------|------|------|
 | P0-D1 | SSE 前端直连 SPS | `api.ts` + `api_app.py`（加 CORS） | `EventSource("/api/v2/realtime/kline-alerts/stream")` → `EventSource("http://127.0.0.1:8090/api/v1/kline-alerts/stream")`；SPS 加 CORS 允许 localhost:5173。**认证策略**：本地开发阶段 SPS CORS 白名单 localhost:5173 即可；生产阶段使用短期 stream token，由 BFF 签发（`GET /api/v2/realtime/sse-token`），前端带 `?token=xxx` 直连 SPS |
-
-**验收**：
-```bash
-# 浏览器 DevTools Network 面板：SSE 连接目标为 127.0.0.1:8090（非 BFF:8000）
-```
 
 **验收**：
 ```bash
