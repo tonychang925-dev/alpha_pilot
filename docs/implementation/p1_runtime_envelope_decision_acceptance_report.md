@@ -1,38 +1,68 @@
-# P1 架构归位验收报告
+# P1 架构归位验收报告（最终版）
 
 日期：2026-05-28  
 项目：ai_theme_app → AlphaPilot / alpha_pilot
 
-## P1-1 Runtime Lite
+## 交付总览
+
+| 阶段 | 内容 | 文件 | 状态 |
+|------|------|------|------|
+| P1-1 | Runtime Lite status/health CLI | `runtime/cli.py`, `health.py`, `profiles/realtime.yaml` | ✅ merged |
+| P1-2 | Envelope Adapter + Stream Alias | `core/contracts/envelope.py`, `streams.py` | ✅ merged |
+| P1-2.1 | run_id per-process stable | `core/contracts/envelope.py` | ✅ merged |
+| P1-3.0 | SignalDecision facade | `core/contracts/decision.py` | ✅ merged |
+| P1-3.1 | SSE producer pilot (Kline/W2S) | `api_app.py` (SPS) | ✅ merged |
+| P1-3.2 | Consumer endpoint `/api/v1/decision/latest` | `api_app.py` (SPS) | ✅ merged |
+| P1-3.3 | Frontend debug panel | `RealtimeCollectorPage.tsx`, `api.ts`, `routes.py` | ✅ PR open |
+| P1-3.4 | Intel Feed decision wrapping | `routes.py` (BFF) | ✅ PR open |
+| P1-3.5 | Auto scores extraction | `core/contracts/decision.py` | ✅ PR open |
+
+## 核心模块
+
+### core/contracts/ — 统一契约层
+
+| 模块 | 行数 | 功能 |
+|------|------|------|
+| `envelope.py` | 130 | `ensure_envelope()` 旧消息包装 + `get_payload()` 提取 + 稳定 run_id |
+| `streams.py` | 32 | `resolve()` 新→旧 alias 映射 |
+| `decision.py` | 220 | `SignalDecision` dataclass + `ensure_decision()` facade + auto scores |
+
+### runtime/ — 运行控制层
+
+| 模块 | 行数 | 功能 |
+|------|------|------|
+| `cli.py` | 92 | `status` / `health` 命令 |
+| `health.py` | 92 | TCP / HTTP / process 三种探针 |
+| `profiles/realtime.yaml` | 68 | 8 个服务声明 |
+
+### Decision 全链路
 
 ```
-$ python -m runtime.cli status --profile realtime
-🟢 redis (必)
-🟢 postgres (必)
-🟢 web_app_service (必)
-🟢 sps (必)
-🟢 jyhf_cdp_service
-🟢 raw_news_services
-🟢 phase0_decision_services
-🟢 frontend_dev
-Running: 8/8
+Producer (SSE) → Redis Stream → Consumer API → Frontend Panel
+     ↓                              ↓
+  _decision 字段               /api/v1/decision/latest
+  + legacy 保留                + frontend debug card
+     ↓                              ↓
+  Kline/W2S/Intel Feed         Intel Feed _decision
 ```
 
-## P1-2 Envelope + Stream + Stable run_id
+### Scores 自动提取
 
-| 模块 | 文件 | 验证 |
-|------|------|------|
-| Envelope Adapter | `core/contracts/envelope.py` | `ensure_envelope()` 旧消息包装，透传已有 envelope |
-| Stream Alias | `core/contracts/streams.py` | `resolve("stream:intel.raw.news")` → `"stream:news:raw"` |
-| run_id 稳定 | envelope.py | 同进程多次调用 `ensure_envelope()` run_id 不变 |
+| 告警类型 | 提取字段 |
+|----------|---------|
+| support_alert | support_strength, distance_pct, confidence |
+| w2s_alert | confirm_score, d2_score, relative_strength |
+| event | impact_score, confidence |
+| 所有 | final_score（加权平均） |
 
-## P1-3 Decision 收口
+## 验收记录
 
-| 阶段 | 内容 | 验证 |
-|------|------|------|
-| P1-3.0 | SignalDecision 结构定义 | `core/contracts/decision.py` — level / scores / evidence / risk_flags |
-| P1-3.1 | SSE 端点试点接入 | Kline `_decision.decision_type=support_alert`，W2S `_decision.decision_type=w2s_alert`。Legacy 字段保留，facade 失败不影响数据流 |
+```
+$ python -m runtime.cli status    →  8/8 🟢
+$ curl /api/v1/decision/latest    →  SignalDecision[] with scores
+$ curl /api/v2/intel/stream       →  _decision in every item
+```
 
 ## 下一步
 
-P1-3.2：Decision 消费侧试点 — Intel Feed / debug endpoint 读取 `_decision`，legacy fallback。
+P2：领域引擎 Facade（MarketStateEngine / SupportEngine / W2SEngine / DecisionEngine）
