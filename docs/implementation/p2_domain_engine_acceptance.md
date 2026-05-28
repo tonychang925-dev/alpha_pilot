@@ -9,7 +9,7 @@
 | P2-1 | MarketStateEngine facade | ✅ merged PR #326 |
 | P2-2 | SupportEngine facade | ✅ merged PR #327 |
 | P2-3 | W2SEngine facade | ✅ merged PR #328 |
-| P2-4 | DecisionEngine facade | ⏳ 待确认 PR #329 |
+| P2-4 | DecisionEngine facade | ✅ merged PR #329 |
 
 ## Facade 链
 
